@@ -1,0 +1,373 @@
+---
+title: "Megafauna - Examination - Gray whales"
+author: "Matthieu Authier, Emmanuelle Cam"
+date: "2022-09-30"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 1) Gray whales
+Once common throughout the Northern Hemisphere, gray whales (*Eschrichtius robustus*) are now only regularly found in the North Pacific Ocean where there are two extant populations, one in the eastern and one in the western North Pacific. (<https://www.fisheries.noaa.gov/species/bowhead-whale>).
+
+Punt and Wade (Journal of Cetacean Research and Management 12(1):15–28, 2012, <https://www.semanticscholar.org/paper/Population-status-of-the-eastern-North-Pacific-of-Punt-Wade/767d7a50bc2bc4df6c7c8729f185b0628187fe77/figure/6>) investigated the status of the eastern North Pacific stock of gray whales in 2009. We will use their data to model the population dynamics of gray whales (https://www.arlis.org/docs/vol1/B/525524065.pdf).
+
+```{r packages}
+what_u_need <- c("tidyverse", "nimble", "MCMCvis", "glue")
+cran_packages <- what_u_need[!(what_u_need %in% installed.packages())]
+if(length(cran_packages) != 0) {
+  lapply(cran_packages, install.packages, dependencies = TRUE)
+}
+lapply(what_u_need, library, character.only = TRUE)
+
+```
+
+Warnings: to get the full grade for this examn, use the tidy grammar. Non-tidy solutions will not earn a full grade.
+
+## Population modelling
+We will model the population dynamics of gray whales assuming a Pella-Tomlinson process for density-dependence. The code _model_pt_ below is a $\texttt{nimble}$ translation of that process. First, you need to use that code as it is, and in a second time, you will make some modifications.
+Do not change the function _init_pt_ for the initial values.
+
+```{r nimble_code}
+### Pella-tomlinson model: nimble code
+model_pt <- nimbleCode({ 
+  ## data
+  # n_obs: integer, sample size
+  # COUNT: integer, can include NA
+  # THETA: shape of the Pella-Tomlinson process
+  # prior_location_lognK: location parameter for the logN prior on K
+  # prior_scale_lognK: scale parameter for the logN prior on K
+  
+  ## likelihood: state-space model
+  # initial condition
+  linpred[1] <- mu
+  COUNT[1] ~ dlnorm(linpred[1] - 0.5 * sigma * sigma, sd = sigma)
+  # time series
+  for (t in 2:n_obs) {
+    linpred[t] <- log(COUNT[t - 1] * (1 + r * (1 - pow(COUNT[t - 1] / K, THETA))))
+    COUNT[t] ~ dlnorm(linpred[t] - 0.5 * sigma * sigma, sd = sigma)
+  }
+  
+  ## priors
+  # normal prior
+  mu ~ dnorm(0.0, sd = 5.0)
+  # half-normal prior
+  sigma ~ T(dnorm(0.0, sd = 1.0), 0.0,)
+  # uniform prior on maximum growth rate
+  r ~ dunif(0.0, 1.0)
+  # log-normal prior
+  K ~ dlnorm(prior_location_lognK, sd = prior_scale_lognK)
+  
+  ## derived quantities: predicted abundance
+  pred[1:n_obs] <- exp(linpred[1:n_obs])
+})
+
+### function to generate initial values (DO NOT MODIFY!)
+init_pt <- function(chain_id, # identifier for a mcmc chain
+                    y, # vector of count: the data
+                    lower, # reasonable lower bound for carrying capacity K
+                    upper  # reasonable upper bound for carrying capacity K
+                    ) {
+  COUNT <- rep(NA, length(y))
+  if(any(is.na(y))) {
+    COUNT[which(is.na(y))] <- rpois(sum(is.na(y)), mean(y, na.rm = TRUE))
+  }
+  out <- list(mu = 2.5 * rnorm(1),
+              sigma = 0.5 * abs(rnorm(1)),
+              r = runif(1, 0.0, 0.1),
+              K = runif(1, lower, upper),
+              COUNT = COUNT
+              )
+  return(out)
+}
+```
+
+## Load the gray whale data
+The data are stored in a spreadsheet called _PuntWade2010.xlsx_. Make sure your path is correct to load the data with the code below.
+
+```{r}
+
+library(readxl)
+library(nimble)
+
+gray <- PuntWade2010
+
+gray %>%
+   mutate(abundance_cv = as.numeric(abundance_cv),
+          abundance_se = sqrt(log1p(abundance_cv * abundance_cv)),
+          lower = qlnorm(0.1, 
+                         log(abundance_estimate) - 0.5 * abundance_se * abundance_se, 
+                         abundance_se
+                         ), 
+          upper = qlnorm(0.9, 
+                         log(abundance_estimate) - 0.5 * abundance_se * abundance_se, 
+                         abundance_se
+                         ),
+          lower = floor(lower),
+          upper = ceiling(upper)
+          )
+```
+?qlnorm
+What are the columns _lower_ and _upper_? What is the level of confidence?
+
+Upper and lower bounds for carrying capacity
+20% 
+
+## Exploratory Data Analysis
+Plot the abundance data of grey whales over time using functionalities from $\texttt{ggplot}$.
+#Y'a untruc plus stylé à faire là je pense
+```{r}
+gray %>%
+   ggplot(aes(x=year,y=abundance_estimate)) +
+  geom_point()+
+  theme_bw()
+```
+
+How many surveys are there (*i.e* years with data)?
+
+```{r}
+# write your answer in R here
+n_survey <- gray %>% 
+  filter(!is.na(abundance_cv)) 
+
+nimPrint("Answear is ", nrow(n_survey))
+
+
+```
+
+## Modelling (I)
+Assume that the prior for K, the carrying capacity is a log-normal distribution of mean $20,000$ and coefficient of variation $20$%.
+
+```{r}
+ prior_scale_lognK <- log(1.20) / 2
+ prior_location_lognK <- log(2E4) - 0.5 * (prior_scale_lognK)^2
+ 
+ data.frame(K = rlnorm(1E6, prior_location_lognK, prior_scale_lognK)) %>%
+   ggplot(aes(x = K)) +
+   geom_histogram(breaks = seq(1E4, 3E4, 5E2)) +
+   theme_bw() +
+   ggtitle("Prior on K")
+```
+
+Fit a population dynamics model with a Pella-Tomlinson ($\theta = 2.4$) to these data using $\texttt{nimble}$ the code _model_pt_ above.
+
+What are the constants?
+
+-> parameters are 'mu', 'sigma', 'K', 'r'
+( à détailler)
+
+What are the stochastic data?
+
+list(COUNT = gray %>% pull(abundance_estimate))
+
+What is the likelihood of the data (*i.e* which distribution is assumed)?
+
+log normal prior on K (mean = 2E4, and CV = 20%)
+
+Make sure model parameters are all converging and that effective sample size are above $1000$ for all of them.
+
+```{r}
+## data for Nimble
+data_constant <- list(n_obs = gray %>% 
+                            nrow(),
+                       # theta parameter of the Pella-Tomlinson process
+                       THETA = 2.4,
+                       # log normal prior on K (mean = 2E4, and CV = 20%)
+                       prior_location_lognK =(log(2E4)-0.5*(log(1.20) / 2)^2),
+                       prior_scale_lognK = log(1.20) / 2
+                       )
+ data_stochastic <- list(COUNT = gray %>% pull(abundance_estimate))
+ 
+ ## specification for nimble
+ n_iter <- 100000 # number of iterations
+ n_burnin <- 10000 # number of burn-in
+ n_chain <- 4 # number of chains
+ n_thin <- 6 # thining
+ n_final <- (n_iter - n_burnin) / n_thin # final sample size from posterior
+```
+
+Once you have completed the lines of code above, run the lines of code below (remove the #)
+
+```{r}
+## fit the model with nimble
+ mcmc_pt <- nimbleMCMC(code = model_pt, 
+                       constants = data_constant,
+                       data = data_stochastic, 
+                       inits = lapply(1:4, 
+                                      init_pt, 
+                                      y = gray %>%
+                                        pull(abundance_estimate),
+                                      lower = 1.5E4,
+                                      upper = 2.5E4
+                                      ),
+                       nchains = n_chain, 
+                       niter = n_iter,
+                       nburnin = n_burnin,
+                       thin = n_thin,
+                       summary = FALSE, 
+                       WAIC = TRUE,
+                       monitors = c('mu', 'sigma', 'K', 'r', 'pred')
+                       )
+
+## calculate numerical summaries
+ MCMCsummary(object = mcmc_pt$samples, round = 2,
+             params = c('sigma', 'mu', 'K', 'r')
+             )
+
+## check convergence: trace and marginal posterior density
+ MCMCtrace(object = mcmc_pt$samples,
+           pdf = FALSE, # no export to PDF
+           ind = TRUE,  # separate density lines per chain
+           params = c('sigma', 'mu', 'K', 'r')
+           )
+
+## posterior analysis: extract joint posterior distribution
+ posterior <- mcmc_pt$samples %>% 
+   do.call("rbind", .) %>% 
+   as.data.frame() %>%
+   mutate(chain_id = rep(1:n_chain, each = n_final),
+          iteration = rep(1:n_final, n_chain)
+          )
+```
+
+How do assess that parameters' convergence has been reached?
+
+The following lines of code will plot the posterior distribution of K and its prior distribution.
+
+What can you notice?
+
+```{r}
+data.frame(posterior = posterior %>%
+              pull(r)) %>%
+   pivot_longer(cols = c("posterior"),
+                values_to = "value",
+                names_to = "param"
+                ) %>%
+   ggplot(aes(x = value)) +
+   geom_histogram() +
+   theme_bw() +
+   ggtitle("r")
+
+   # uniform prior on maximum growth rate
+  r ~ dunif(0.0, 1.0)
+  # log-normal prior
+  K ~ dlnorm(prior_location_lognK, sd = prior_scale_lognK)
+  
+```
+
+What is the estimate for maximum growth rate (r)?
+Plot the posterior distribution as histogram with bins of size $0.025$.
+
+```{r}
+
+data.frame(posterior = posterior %>%
+              pull(r)) %>%
+   pivot_longer(cols = c("posterior"),
+                values_to = "value",
+                names_to = "param"
+                ) %>%
+   ggplot(aes(x = value)) +
+   geom_histogram(binwidth = 0.025) +
+   theme_bw() +
+   ggtitle("r")
+
+   # uniform prior on maximum growth rate
+  r ~ dunif(0.0, 1.0)
+  # log-normal prior
+  K ~ dlnorm(prior_location_lognK, sd = prior_scale_lognK)
+  
+
+```
+
+Is this realistic? How does that compare for example against calf production (the ratio of the number of calves over the estimated abundance)?
+Compute the apparent calf production by filling in the code below:
+
+```{r}
+ gray %>%
+mutate(production = calf_count / abundance_estimate) %>%
+filter(!is.na(production)) %>% 
+  ggplot()+
+  geom_point(aes(x=year, y=production)) +
+  geom_line(aes(x=year, y=production))
+
+mean_r <- gray %>%
+mutate(production = calf_count / abundance_estimate) %>%
+filter(!is.na(production))
+  
+nimPrint("Answer is ", mean(mean_r$production))
+
+```
+
+With the Pella-Tomlinson($\theta = 2.4$) model, productivity is expected to be maximum at $60$% of K.
+This quantity is called the MNPL (Maximum Net Productivity Level). 
+
+What is $60$% of K? Use the posterior distribution of K.
+
+```{r}
+# posterior %>%
+#   mutate(MNPL = ...) %>%
+```
+
+The maximum growth rate is reached when the population is at the MNPL. Compare the apparent calf production and the inferred MNPL. 
+Is the estimate of r plausible?
+
+## Modelling (II)
+Change the prior on r to a Gamma distribution of mean $0.04$ and $95$% confidence interval between $0.01$ and $0.08$. The following $\texttt{R}$ parametrization corresponds to this prior: $\texttt{r ~ dgamma(3.645, 1/1.094E-2)}$
+
+Simulate $1,000,000$ values from this prior with _rgamma()_ and plot them as a histogram with bins of size 0.01
+
+```{r}
+# data.frame(r = rgamma(1E6, 3.645, 1/1.094E-2)) %>%
+#   ... +
+#   theme_bw()
+```
+
+Modify the nimble code _model_pt_ to change the uniform prior on r to this gamma prior.
+Call this model 'model_pt_gamr'.
+
+```{r}
+# model_pt_gamr <- nimbleCode({ ... })
+```
+
+Fit this model. Ensure that all parameters have converged and that the effective sample size is large enough. Extract the joint posterior distribution.
+
+Does the posterior distribution of r change? Make a histogram comparing the prior and the posterior for r. Recycle some code above to do so.
+
+Does your inference on K change?
+
+### Modelling (III)
+Include in the population dynamics that this species is actually hunted.
+
+Compute the total number of catches each year and include them in the model dynamics:
+
+$\texttt{N[t+1] = N[t] + N[t] * r * (1 - (N[t] / K)^THETA) - CATCH[t]}$
+
+Modify the nimble code _model_pt_gamr_ to include the catch data. Call this model _model_pt_gamr_catch_
+
+```{r}
+# model_pt_gamr_catch <- nimbleCode({ ... })
+```
+
+Fit this model with nimble. Do not forget to include the catch data. Where do they go? Into the constants or into the stochastic part?
+
+Ensure that all parameters have converged and that the effective sample size is large enough. Extract the joint posterior distribution.
+
+Plot the posterior mean of the abundance according to this last model and show also the $80$% confidence interval on this plot.
+Plot the raw data alongside.
+Hint: use the following code:
+
+```{r}
+# geom_linerange(data = gray,
+#                aes(x = year, y = abundance_estimate, ymin = lower, ymax = upper),
+#                color = "tomato"
+#                ) +
+#   geom_point(data = gray,
+#              aes(x = year, y = abundance_estimate),
+#              color = "tomato"
+#              )
+```
+
+
+
