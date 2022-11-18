@@ -240,20 +240,18 @@ What can you notice?
 
 ```{r}
 data.frame(posterior = posterior %>%
-              pull(r)) %>%
-   pivot_longer(cols = c("posterior"),
+              pull(K)
+            ) %>%
+   mutate(prior = rlnorm(n(), prior_location_lognK, prior_scale_lognK)) %>%
+   pivot_longer(cols = c("prior", "posterior"),
                 values_to = "value",
                 names_to = "param"
                 ) %>%
    ggplot(aes(x = value)) +
-   geom_histogram() +
+   facet_wrap(~ param, ncol = 1) +
+   geom_histogram(breaks = seq(1E4, 3E4, 5E2)) +
    theme_bw() +
-   ggtitle("r")
-
-   # uniform prior on maximum growth rate
-  r ~ dunif(0.0, 1.0)
-  # log-normal prior
-  K ~ dlnorm(prior_location_lognK, sd = prior_scale_lognK)
+   ggtitle("K")
   
 ```
 
@@ -272,12 +270,6 @@ data.frame(posterior = posterior %>%
    geom_histogram(binwidth = 0.025) +
    theme_bw() +
    ggtitle("r")
-
-   # uniform prior on maximum growth rate
-  r ~ dunif(0.0, 1.0)
-  # log-normal prior
-  K ~ dlnorm(prior_location_lognK, sd = prior_scale_lognK)
-  
 
 ```
 
@@ -306,8 +298,11 @@ This quantity is called the MNPL (Maximum Net Productivity Level).
 What is $60$% of K? Use the posterior distribution of K.
 
 ```{r}
-# posterior %>%
-#   mutate(MNPL = ...) %>%
+MNPL = posterior %>%
+ mutate(MNPL = posterior %>% 
+          pull(K) %>% quantile(probs = 0.6)) %>% pull(MNPL) %>% mean()
+
+nimPrint("60% of K is ", MNPL)
 ```
 
 The maximum growth rate is reached when the population is at the MNPL. Compare the apparent calf production and the inferred MNPL. 
