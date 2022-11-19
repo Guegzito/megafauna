@@ -317,6 +317,12 @@ Simulate $1,000,000$ values from this prior with _rgamma()_ and plot them as a h
 # data.frame(r = rgamma(1E6, 3.645, 1/1.094E-2)) %>%
 #   ... +
 #   theme_bw()
+
+data.frame(r = rgamma(1E6, 3.645, 1/1.094E-2)) %>% 
+  ggplot(aes(x = r)) +
+  geom_histogram(binwidth = 0.01) + 
+  theme_bw()
+  
 ```
 
 Modify the nimble code _model_pt_ to change the uniform prior on r to this gamma prior.
@@ -324,6 +330,116 @@ Call this model 'model_pt_gamr'.
 
 ```{r}
 # model_pt_gamr <- nimbleCode({ ... })
+### Pella-tomlinson model: nimble code
+model_pt_gamr <- nimbleCode({ 
+  ## data
+  # n_obs: integer, sample size
+  # COUNT: integer, can include NA
+  # THETA: shape of the Pella-Tomlinson process
+  # prior_location_lognK: location parameter for the logN prior on K
+  # prior_scale_lognK: scale parameter for the logN prior on K
+  
+  ## likelihood: state-space model
+  # initial condition
+  linpred[1] <- mu
+  COUNT[1] ~ dlnorm(linpred[1] - 0.5 * sigma * sigma, sd = sigma)
+  # time series
+  for (t in 2:n_obs) {
+    linpred[t] <- log(COUNT[t - 1] * (1 + r * (1 - pow(COUNT[t - 1] / K, THETA))))
+    COUNT[t] ~ dlnorm(linpred[t] - 0.5 * sigma * sigma, sd = sigma)
+  }
+  
+  ## priors
+  # normal prior
+  mu ~ dnorm(0.0, sd = 5.0)
+  # half-normal prior
+  sigma ~ T(dnorm(0.0, sd = 1.0), 0.0,)
+  # uniform prior on maximum growth rate
+  r ~ dgamma(3.645, 1/1.094E-2)
+  # log-normal prior
+  K ~ dlnorm(prior_location_lognK, sd = prior_scale_lognK)
+  
+  ## derived quantities: predicted abundance
+  pred[1:n_obs] <- exp(linpred[1:n_obs])
+})
+
+### function to generate initial values (DO NOT MODIFY!)
+init_pt <- function(chain_id, # identifier for a mcmc chain
+                    y, # vector of count: the data
+                    lower, # reasonable lower bound for carrying capacity K
+                    upper  # reasonable upper bound for carrying capacity K
+                    ) {
+  COUNT <- rep(NA, length(y))
+  if(any(is.na(y))) {
+    COUNT[which(is.na(y))] <- rpois(sum(is.na(y)), mean(y, na.rm = TRUE))
+  }
+  out <- list(mu = 2.5 * rnorm(1),
+              sigma = 0.5 * abs(rnorm(1)),
+              r = runif(1, 0.0, 0.1),
+              K = runif(1, lower, upper),
+              COUNT = COUNT
+              )
+  return(out)
+}
+
+## fit the model with nimble
+ mcmc_pt_gamr <- nimbleMCMC(code = model_pt_gamr, 
+                       constants = data_constant,
+                       data = data_stochastic, 
+                       inits = lapply(1:4, 
+                                      init_pt, 
+                                      y = gray %>%
+                                        pull(abundance_estimate),
+                                      lower = 1.5E4,
+                                      upper = 2.5E4
+                                      ),
+                       nchains = n_chain, 
+                       niter = n_iter,
+                       nburnin = n_burnin,
+                       thin = n_thin,
+                       summary = FALSE, 
+                       WAIC = TRUE,
+                       monitors = c('mu', 'sigma', 'K', 'r', 'pred')
+                       )
+
+## calculate numerical summaries
+ MCMCsummary(object = mcmc_pt_gamr$samples, round = 2,
+             params = c('sigma', 'mu', 'K', 'r')
+             )
+
+## check convergence: trace and marginal posterior density
+ MCMCtrace(object = mcmc_pt_gamr$samples,
+           pdf = FALSE, # no export to PDF
+           ind = TRUE,  # separate density lines per chain
+           params = c('sigma', 'mu', 'K', 'r')
+           )
+
+## posterior analysis: extract joint posterior distribution
+ posterior_gamr <- mcmc_pt_gamr$samples %>% 
+   do.call("rbind", .) %>% 
+   as.data.frame() %>%
+   mutate(chain_id = rep(1:n_chain, each = n_final),
+          iteration = rep(1:n_final, n_chain)
+          )
+ 
+
+ ##plot 
+data.frame(posterior_gamr = posterior_gamr %>%
+              pull(r)) %>%
+   mutate(prior = rgamma(n(), 3.645, 1/1.094E-2)) %>%
+   pivot_longer(cols = c("prior", "posterior_gamr"),
+                values_to = "value",
+                names_to = "param"
+                ) %>%
+   ggplot(aes(x = value)) +
+   facet_wrap(~ param, ncol = 1) +
+   geom_histogram(binwidth = 0.005) +
+   theme_bw() +
+   ggtitle("r")
+
+#regarder le WAIC
+mcmc_pt_gamr$WAIC
+
 ```
 
 Fit this model. Ensure that all parameters have converged and that the effective sample size is large enough. Extract the joint posterior distribution.
@@ -343,6 +459,128 @@ Modify the nimble code _model_pt_gamr_ to include the catch data. Call this mode
 
 ```{r}
 # model_pt_gamr_catch <- nimbleCode({ ... })
+gray = gray %>% mutate(catch = male_removals + female_removals)
+# model_pt_gamr_catch <- nimbleCode({ ... })
+data_constant <- list(n_obs = gray %>% 
+                            nrow(),
+                       # theta parameter of the Pella-Tomlinson process
+                       THETA = 2.4,
+                      CATCH = gray %>% 
+                        pull(catch), 
+                       # log normal prior on K (mean = 2E4, and CV = 20%)
+                       prior_location_lognK =(log(2E4)-0.5*(log(1.20) / 2)^2),
+                       prior_scale_lognK = log(1.20) / 2
+                       )
+ data_stochastic <- list(COUNT = gray %>% pull(abundance_estimate))
+ 
+ 
+model_pt_gamr_catch <- nimbleCode({ 
+  ## data
+  # n_obs: integer, sample size
+  # COUNT: integer, can include NA
+  # THETA: shape of the Pella-Tomlinson process
+  # prior_location_lognK: location parameter for the logN prior on K
+  # prior_scale_lognK: scale parameter for the logN prior on K
+  
+  ## likelihood: state-space model
+  # initial condition
+  linpred[1] <- mu
+  COUNT[1] ~ dlnorm(linpred[1] - 0.5 * sigma * sigma, sd = sigma)
+  # time series
+  for (t in 2:n_obs) {
+    linpred[t] <- log(COUNT[t - 1] * (1 + r * (1 - pow(COUNT[t - 1] / K, THETA)))- CATCH[t])
+    COUNT[t] ~ dlnorm(linpred[t] - 0.5 * sigma * sigma, sd = sigma)
+  }
+  
+  ## priors
+  # normal prior
+  mu ~ dnorm(0.0, sd = 5.0)
+  # half-normal prior
+  sigma ~ T(dnorm(0.0, sd = 1.0), 0.0,)
+  # uniform prior on maximum growth rate
+  r ~ dgamma(3.645, 1/1.094E-2)
+  # log-normal prior
+  K ~ dlnorm(prior_location_lognK, sd = prior_scale_lognK)
+  
+  ## derived quantities: predicted abundance
+  pred[1:n_obs] <- exp(linpred[1:n_obs])
+})
+
+### function to generate initial values (DO NOT MODIFY!)
+init_pt <- function(chain_id, # identifier for a mcmc chain
+                    y, # vector of count: the data
+                    lower, # reasonable lower bound for carrying capacity K
+                    upper  # reasonable upper bound for carrying capacity K
+                    ) {
+  COUNT <- rep(NA, length(y))
+  if(any(is.na(y))) {
+    COUNT[which(is.na(y))] <- rpois(sum(is.na(y)), mean(y, na.rm = TRUE))
+  }
+  out <- list(mu = 2.5 * rnorm(1),
+              sigma = 0.5 * abs(rnorm(1)),
+              r = runif(1, 0.0, 0.1),
+              K = runif(1, lower, upper),
+              COUNT = COUNT
+              )
+  return(out)
+}
+
+## fit the model with nimble
+ mcmc_pt_gamr_catch <- nimbleMCMC(code = model_pt_gamr_catch, 
+                       constants = data_constant,
+                       data = data_stochastic, 
+                       inits = lapply(1:4, 
+                                      init_pt, 
+                                      y = gray %>%
+                                        pull(abundance_estimate),
+                                      lower = 1.5E4,
+                                      upper = 2.5E4
+                                      ),
+                       nchains = n_chain, 
+                       niter = n_iter,
+                       nburnin = n_burnin,
+                       thin = n_thin,
+                       summary = FALSE, 
+                       WAIC = TRUE,
+                       monitors = c('mu', 'sigma', 'K', 'r', 'pred')
+                       )
+ 
+## calculate numerical summaries
+ MCMCsummary(object = mcmc_pt_gamr_catch$samples, round = 2,
+             params = c('sigma', 'mu', 'K', 'r')
+             )
+
+## check convergence: trace and marginal posterior density
+ MCMCtrace(object = mcmc_pt_gamr_catch$samples,
+           pdf = FALSE, # no export to PDF
+           ind = TRUE,  # separate density lines per chain
+           params = c('sigma', 'mu', 'K', 'r')
+           )
+ 
+ ## posterior analysis: extract joint posterior distribution
+ posterior_gamr_catch <- mcmc_pt_gamr_catch$samples %>% 
+   do.call("rbind", .) %>% 
+   as.data.frame() %>%
+   mutate(chain_id = rep(1:n_chain, each = n_final),
+          iteration = rep(1:n_final, n_chain)
+          )
+
+ ##plot 
+data.frame(posterior_gamr_catch = posterior_gamr_catch %>%
+              pull(r)) %>%
+   mutate(prior = rgamma(n(), 3.645, 1/1.094E-2)) %>%
+   pivot_longer(cols = c("prior", "posterior_gamr_catch"),
+                values_to = "value",
+                names_to = "param"
+                ) %>%
+   ggplot(aes(x = value)) +
+   facet_wrap(~ param, ncol = 1) +
+   geom_histogram(binwidth = 0.005) +
+   theme_bw() +
+   ggtitle("r")
+
+#regarder le WAIC
+mcmc_pt_gamr_catch$WAIC
 ```
 
 Fit this model with nimble. Do not forget to include the catch data. Where do they go? Into the constants or into the stochastic part?
