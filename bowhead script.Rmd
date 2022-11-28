@@ -1,0 +1,230 @@
+---
+title: "Megafauna - Examination - Bowhead whale"
+author: "Matthieu Authier, Emmanuelle Cam"
+date: "2022-09-29"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 1) Bowhead whales
+Bowhead whales (*Balaena mysticecus*) are one of the few whale species that reside almost exclusively in Arctic and subarctic waters experiencing seasonal sea ice coverage, primarily between $60^{\circ}$ and $75^{\circ}$ north latitude. Of all large whales, the bowhead is the most adapted to life in icy water (<https://www.fisheries.noaa.gov/species/bowhead-whale>).              
+
+Kovacs et al. (2020, <https://royalsocietypublishing.org/doi/10.1098/rsbl.2020.0148>) document range, movement patterns and habitat preferences of the Spitsbergen's bowhead whale population, based on tagging done from an icebreaker-based helicopter. The tracking data are available at <https://data.npolar.no/dataset/395011fc-e32c-4a0c-8350-a50bffbecb1f>.
+
+```{r packages}
+what_u_need <- c("tidyverse", "sf", "ggspatial", "lubridate", "spData")
+cran_packages <- what_u_need[!(what_u_need %in% installed.packages())]
+if(length(cran_packages) != 0) {
+  lapply(cran_packages, install.packages, dependencies = TRUE)
+}
+lapply(what_u_need, library, character.only = TRUE)
+
+```
+
+Warnings: to get the full grade for this examn, use the tidy grammar. Non-tidy solutions will not earn a full grade.
+
+## Load the tracking data
+What is the extension of the data file? What does 'tsv' mean? #the extension is ".tsv". It's mean "Tab Separated Values"
+Load the data in $\texttt{R}$: call the dataframe "bowhead" for legibility (code should also be human-readable).
+Using commands from the tidyverse, check how many individual whales have been tracked.
+
+
+```{r data}
+# bowhead <- read_tsv("argos-bowhead-locations-2017-2018.tsv")
+bowhead <- read_tsv("argos-bowhead-locations-2017-2018.tsv")
+### how many individuals in these data?
+# bowhead %>%
+bowhead %>% 
+  count(Ind) + 
+  
+  #OR 
+  
+length(unique(bowhead$Ind))
+
+#There is 13 different individuals in these data
+
+
+## Convert the Date.Time column to a date time object
+
+Add a column with year and another with month.
+Use functionalities from the package $\texttt{lubridate}$.
+
+```{r}
+bowhead <- bowhead %>%
+  mutate(date_time = ymd_hms(Date.Time),
+         year= year(ymd_hms(Date.Time)),
+         month = month(ymd_hms(Date.Time)),
+)
+## Data quality
+Exclude Argos location classes (Quality) "Z" using functionalities from the tidyverse.
+
+What is the average attrition rate **across individual tracks** (*i.e.* how many data points are being lost on average by excluding the "Z" class on a track)?
+Express the answer in % with one decimal.
+
+How many rows are there left in the dataframe?
+
+Use the pipe and the tidy grammar.
+
+```{r attrition}
+# write your answer in R here
+
+bowhead_qz <- bowhead %>%
+  filter("Quality" != "Z")
+
+(countZ <- (nrow(bowhead_qz)/nrow(bowhead)*100))%>%
+  round(.,1)
+print(paste("average attribution rate excluding quality  Z"))
+ 
+
+## Projecting the data
+
+Turn the data from a data.frame into an _sf_ object with coordinates in WGS84.
+
+```{r project}
+# bowhead <- bowhead %>%
+
+bowheadmap <- bowhead_qz %>%
+  st_as_sf(coords = c("Lon","Lat"), crs = 4326) %>%
+  st_cast()
+
+Change the projection to something appropriate for the Arctic region (still using WGS84)
+Check which projection to use on the website <https://epsg.io/?q=>
+
+```{r reproject}
+# bowhead <- bowhead %>%
+bowheadmap <- bowheadmap %>%
+  st_transform(crs = 3995)
+```
+
+## Maps
+Make a map with an arrow indicating the North in the top left corner and a scale in the bottom right corner.
+Add a land mask using the command _data(world)_ from package $\texttt{spData}$.
+Make sure that you are only showing the region with bowhead whale positions.
+(hint: find the bounding box of the data and use _coord_sf_)
+
+```{r map1}
+theme_set(theme_bw())
+
+data(world)
+
+bowheadmap %>%
+  ggplot() +
+  geom_sf(aes()) +
+  coord_sf( xlim = c(-22.62915, 75.2680), ylim= c(71.51120, 83.55177))+
+  annotation_spatial(bowheadmap) +
+  annotation_scale(location = "bl", width_hint = 0.25) +
+  annotation_north_arrow(location = "tr",
+                         which_north = "true",
+                         pad_x = unit(0.2, "cm"),
+                         pad_y = unit(0.1, "cm"),
+                         style = north_arrow_fancy_orienteering
+                       ) +
+  theme_bw() 
+```
+
+#rajouter un fond de carte
+
+Make a map with a color code to show individuals. Use a discrete _viridis_ palette.
+
+```{r map2}
+# bowhead %>%
+
+  st_bbox(bowheadmap$geometry)
+library(viridis)
+
+bowheadmap %>%
+  ggplot() +
+  geom_sf(aes( colour = factor(Ind)))+
+  coord_sf( xlim = c(-22.62915, 75.2680), ylim= c(71.51120, 83.55177))+
+  scale_color_viridis(discrete = TRUE) +
+  annotation_scale(location = "br", width_hint = 0.25) +
+  annotation_north_arrow(location = "tl",
+                         which_north = "true",
+                         pad_x = unit(0.2, "cm"),
+                         pad_y = unit(0.1, "cm"),
+                         style = north_arrow_fancy_orienteering
+                       ) +
+  theme_bw()
+```
+  
+
+Map each year in the tracking data with a color code.
+Put the color legend at the top of the figure. Use a discrete _viridis_ palette.
+
+```{r map3}
+# bowhead %>%
+
+bowheadmap %>%
+  ggplot() +
+  geom_sf(aes( colour = factor(year)))+
+  coord_sf( xlim = c(-22.62915, 75.2680), ylim= c(71.51120, 83.55177))+
+  scale_color_viridis(discrete = TRUE) +
+  annotation_scale(location = "br", width_hint = 0.25) +
+  annotation_north_arrow(location = "tl",
+                         which_north = "true",
+                         pad_x = unit(0.2, "cm"),
+                         pad_y = unit(0.1, "cm"),
+                         style = north_arrow_fancy_orienteering
+                       ) +
+  theme_bw()
+
+
+
+
+```
+
+Map each month in the tracking data with a color code (make sure month are ordered from January to December in the legend). 
+Put the color legend at the top of the figure and use a discrete _viridis_ palette.
+
+```{r map4}
+# bowhead %>%
+bowheadmap$month <- as.factor(bowheadmap$month)
+
+levels(bowheadmap$month) <- c("January", "February", "March", "April", "Mai", "June", "July", "August", "September", "October", "November", "December")
+
+bowheadmap %>%
+  ggplot() +
+  geom_sf(aes( colour = factor(month)))+
+  scale_color_viridis(discrete = TRUE) +
+  annotation_scale(location = "bl", width_hint = 0.25) +
+  annotation_north_arrow(location = "tr",
+                         which_north = "true",
+                         pad_x = unit(0.2, "cm"),
+                         pad_y = unit(0.1, "cm"),
+                         style = north_arrow_fancy_orienteering) +
+  
+  theme_bw()
+
+
+
+```
+
+## Seasonal space use
+Are the individual bowhead whales spending the summer months (June to August) in a different area than during winter months (Dec to Feb)?
+
+Make a map with two panels to answer this question: one panel for summer and one panel for winter.
+
+
+```{r map5}
+# bowhead %>%
+bowheadmapseason <- levels(bowheadmap$month) <- c("Winter", "Winter", "Spring", "Spring", "Spring", "Summer", "Summer", "Summer", "Fall", "Fall", "Fall", "Winter")
+
+bowheadmap %>%
+  ggplot() +
+  geom_sf(aes( colour = factor(month)))+
+  scale_color_viridis(discrete = TRUE) +
+  annotation_scale(location = "bl", width_hint = 0.25) +
+  annotation_north_arrow(location = "tr",
+                         which_north = "true",
+                         pad_x = unit(0.2, "cm"),
+                         pad_y = unit(0.1, "cm"),
+                         style = north_arrow_fancy_orienteering) +
+  
+  theme_bw()
+
+
+```
+
