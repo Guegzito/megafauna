@@ -77,11 +77,12 @@ Use the pipe and the tidy grammar.
 # write your answer in R here
 #refaire en nimble 
 bowhead_qz <- bowhead %>%
-  filter("Quality" != "Z") 
+  filter(Quality != "Z") 
 
-(countZ <- (nrow(bowhead_qz)/nrow(bowhead)*100))%>%
+(countZ <- (100 - nrow(bowhead_qz)/nrow(bowhead)*100))%>%
   round(.,1) %>% print()
 ```
+By excluding "Z" class, we lost 0.2% of the data points.
 Turn the data from a data.frame into an _sf_ object with coordinates in WGS84.
 
 ```{r project}
