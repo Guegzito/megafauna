@@ -96,8 +96,9 @@ Check which projection to use on the website <https://epsg.io/?q=>
 
 ```{r reproject}
 # bowhead <- bowhead %>%
-bowheadmap_arct <- bowheadmap84 %>%
-  st_transform(crs = 3995)
+bowheadmap_arct <- bowhead_qz %>% st_as_sf(coords = c("Lon","Lat"), crs = 3995) %>%
+  st_cast()
+
 ```
 
 ## Maps
@@ -123,6 +124,7 @@ ggplot() +
                        ) +
   theme_bw() 
 
+
 ```
 
 #rajouter un fond de carte
@@ -132,7 +134,7 @@ Make a map with a color code to show individuals. Use a discrete _viridis_ palet
 ```{r map2}
 
 
-#st_bbox(bowheadmap84$geometry)
+st_bbox(bowheadmap_arct$geometry)
 
 #library(viridis)
 #library(spData)
@@ -160,7 +162,7 @@ Map each year in the tracking data with a color code.
 Put the color legend at the top of the figure. Use a discrete _viridis_ palette.
 
 ```{r map3}
-# bowhead %>%
+
 bowheadmap84 %>%
   ggplot() +
   geom_sf(data = world, aes()) +
