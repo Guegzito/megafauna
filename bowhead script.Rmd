@@ -45,7 +45,7 @@ bowhead %>%
 length(unique(bowhead$Ind))
 
 #There is 13 different individuals in these data
-
+```
 
 ## Convert the Date.Time column to a date time object
 
@@ -58,6 +58,8 @@ bowhead <- bowhead %>%
          year= year(ymd_hms(Date.Time)),
          month = month(ymd_hms(Date.Time)),
 )
+```
+
 ## Data quality
 Exclude Argos location classes (Quality) "Z" using functionalities from the tidyverse.
 
@@ -80,7 +82,7 @@ print(paste("average attribution rate excluding quality  Z"))
  
 
 ## Projecting the data
-
+```
 Turn the data from a data.frame into an _sf_ object with coordinates in WGS84.
 
 ```{r project}
@@ -89,6 +91,7 @@ Turn the data from a data.frame into an _sf_ object with coordinates in WGS84.
 bowheadmap <- bowhead_qz %>%
   st_as_sf(coords = c("Lon","Lat"), crs = 4326) %>%
   st_cast()
+```
 
 Change the projection to something appropriate for the Arctic region (still using WGS84)
 Check which projection to use on the website <https://epsg.io/?q=>
@@ -113,7 +116,7 @@ data(world)
 bowheadmap %>%
   ggplot() +
   geom_sf(aes()) +
-  coord_sf( xlim = c(-22.62915, 75.2680), ylim= c(71.51120, 83.55177))+
+  coord_sf( xlim = c(-775606.8, 1193504.3), ylim= c(-1888241.1, -247938.7))+
   annotation_spatial(bowheadmap) +
   annotation_scale(location = "bl", width_hint = 0.25) +
   annotation_north_arrow(location = "tr",
@@ -138,7 +141,7 @@ library(viridis)
 bowheadmap %>%
   ggplot() +
   geom_sf(aes( colour = factor(Ind)))+
-  coord_sf( xlim = c(-22.62915, 75.2680), ylim= c(71.51120, 83.55177))+
+  coord_sf( xlim = c(-775606.8, 1193504.3), ylim= c(-1888241.1, -247938.7))+
   scale_color_viridis(discrete = TRUE) +
   annotation_scale(location = "br", width_hint = 0.25) +
   annotation_north_arrow(location = "tl",
@@ -160,7 +163,7 @@ Put the color legend at the top of the figure. Use a discrete _viridis_ palette.
 bowheadmap %>%
   ggplot() +
   geom_sf(aes( colour = factor(year)))+
-  coord_sf( xlim = c(-22.62915, 75.2680), ylim= c(71.51120, 83.55177))+
+  coord_sf( xlim = c(-775606.8, 1193504.3), ylim= c(-1888241.1, -247938.7))+
   scale_color_viridis(discrete = TRUE) +
   annotation_scale(location = "br", width_hint = 0.25) +
   annotation_north_arrow(location = "tl",
