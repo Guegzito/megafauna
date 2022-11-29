@@ -2,4 +2,4 @@
 
 C'est ici qu'on va bosser les ptits potes 
 
-#il ne reste plus qu'à rédiger et à faire la dernière question pour la partie 2
+#Sam, j'ai remis ma version finale pour la partie 2
