@@ -133,7 +133,7 @@ How many surveys are there (*i.e* years with data)?
 n_survey <- gray %>% 
   filter(!is.na(abundance_cv)) 
 
-nimPrint("Answear is ", nrow(n_survey))
+nimPrint("Answer is ", nrow(n_survey))
 
 
 ```
@@ -156,16 +156,19 @@ Fit a population dynamics model with a Pella-Tomlinson ($\theta = 2.4$) to these
 
 What are the constants?
 
--> parameters are 'mu', 'sigma', 'K', 'r'
-( à détailler)
+-> parameters are 'mu' (), 'sigma', 'K' (the carrying capacity), 'r'(maximum growth rate)
 
 What are the stochastic data?
 
-list(COUNT = gray %>% pull(abundance_estimate))
+abundance_estimate is the only stochastic data
 
 What is the likelihood of the data (*i.e* which distribution is assumed)?
 
 log normal prior on K (mean = 2E4, and CV = 20%)
+normal distribution prior on mu ~ with mean 0 and sd 5
+half-normal prior on sigma with mean 0 and sd 1
+uniform prior on maximum growth rate
+  r ~ dunif(0.0, 1.0)
 
 Make sure model parameters are all converging and that effective sample size are above $1000$ for all of them.
 
@@ -182,8 +185,8 @@ data_constant <- list(n_obs = gray %>%
  data_stochastic <- list(COUNT = gray %>% pull(abundance_estimate))
  
  ## specification for nimble
- n_iter <- 100000 # number of iterations
- n_burnin <- 10000 # number of burn-in
+ n_iter <- 1000 # number of iterations
+ n_burnin <- 500 # number of burn-in
  n_chain <- 4 # number of chains
  n_thin <- 6 # thining
  n_final <- (n_iter - n_burnin) / n_thin # final sample size from posterior
@@ -235,9 +238,14 @@ Once you have completed the lines of code above, run the lines of code below (re
 
 How do assess that parameters' convergence has been reached?
 
+We can look at the density lines of the chains and check if they are peaking for the same 
+value, the trace must be also a combined fuzzy thread. If there are separate traces that never cross, we can assess that the parameters did not converge
+
 The following lines of code will plot the posterior distribution of K and its prior distribution.
 
 What can you notice?
+
+We can notice that all parameters have converged according to the criteria assesed before.
 
 ```{r}
 data.frame(posterior = posterior %>%
@@ -272,12 +280,10 @@ data.frame(posterior = posterior %>%
    theme_bw() +
    ggtitle("r")
 
-   
-  
-
 ```
 
-Is this realistic? How does that compare for example against calf production (the ratio of the number of calves over the estimated abundance)?
+Is this realistic? How does that compare for example against calf production (the ratio of the number of calves over the estimated abundance) ?
+
 Compute the apparent calf production by filling in the code below:
 
 ```{r}
@@ -459,7 +465,7 @@ mcmc_pt_gamr$WAIC
 Fit this model. Ensure that all parameters have converged and that the effective sample size is large enough. Extract the joint posterior distribution.
 
 Does the posterior distribution of r change? Make a histogram comparing the prior and the posterior for r. Recycle some code above to do so.
-
+We observe that the posterior distribution of r has changed and the distribution is much more 
 Does your inference on K change?
 
 ### Modelling (III)
@@ -615,7 +621,4 @@ geom_linerange(data = gray,
               aes(x = year, y = abundance_estimate),
               color = "tomato"
               )
-```
-
-
-
+``
