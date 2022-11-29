@@ -26,7 +26,10 @@ lapply(what_u_need, library, character.only = TRUE)
 Warnings: to get the full grade for this examn, use the tidy grammar. Non-tidy solutions will not earn a full grade.
 
 ## Load the tracking data
-What is the extension of the data file? What does 'tsv' mean? #the extension is ".tsv". It's mean "Tab Separated Values"
+What is the extension of the data file? What does 'tsv' mean? 
+
+#The extension is ".tsv". It's mean "Tab Separated Values".
+
 Load the data in $\texttt{R}$: call the dataframe "bowhead" for legibility (code should also be human-readable).
 Using commands from the tidyverse, check how many individual whales have been tracked.
 
@@ -34,7 +37,7 @@ Using commands from the tidyverse, check how many individual whales have been tr
 ```{r data}
 # bowhead <- read_tsv("argos-bowhead-locations-2017-2018.tsv")
 bowhead <- read_tsv("argos-bowhead-locations-2017-2018.tsv")
-### how many individuals in these data?
+### how many individuals in these data? 13
 # bowhead %>%
 n_indiv = bowhead %>% 
   count(Ind) %>%
@@ -45,6 +48,7 @@ nimPrint("The number of individuals in these data is ", n_indiv)
   #OR 
   
 length(unique(bowhead$Ind))
+
 #There is 13 different individuals in these data
 ```
 
@@ -67,9 +71,10 @@ bowhead = bowhead %>%
 Exclude Argos location classes (Quality) "Z" using functionalities from the tidyverse.
 
 What is the average attrition rate **across individual tracks** (*i.e.* how many data points are being lost on average by excluding the "Z" class on a track)?
-Express the answer in % with one decimal.
+Express the answer in % with one decimal. 
 
-How many rows are there left in the dataframe?
+How many rows are there left in the dataframe? 
+# There are 26 rows left
 
 Use the pipe and the tidy grammar.
 
@@ -82,7 +87,10 @@ bowhead_qz <- bowhead %>%
 (countZ <- (100 - nrow(bowhead_qz)/nrow(bowhead)*100))%>%
   round(.,1) %>% print()
 ```
-By excluding "Z" class, we lost 0.2% of the data points.
+
+#By excluding "Z" class, we lost 0.2% of the data points.
+
+
 Turn the data from a data.frame into an _sf_ object with coordinates in WGS84.
 
 ```{r project}
@@ -209,6 +217,8 @@ bowheadmap84 %>%
 ## Seasonal space use
 Are the individual bowhead whales spending the summer months (June to August) in a different area than during winter months (Dec to Feb)?
 
+#
+
 Make a map with two panels to answer this question: one panel for summer and one panel for winter.
 
 
@@ -230,3 +240,5 @@ bowheadmap84 %>%
   
   theme_bw()
 ```
+
+# Whales spend winter and summer in different places. They seem to migrate north in winter while in summer they frequent more southern waters.
