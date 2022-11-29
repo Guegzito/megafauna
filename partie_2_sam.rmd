@@ -88,6 +88,7 @@ init_pt <- function(chain_id, # identifier for a mcmc chain
 The data are stored in a spreadsheet called _PuntWade2010.xlsx_. Make sure your path is correct to load the data with the code below.
 
 ```{r}
+#TROUVER UNE SOLUTION 
 
 library(readxl)
 library(nimble)
@@ -271,6 +272,9 @@ data.frame(posterior = posterior %>%
    theme_bw() +
    ggtitle("r")
 
+   
+  
+
 ```
 
 Is this realistic? How does that compare for example against calf production (the ratio of the number of calves over the estimated abundance)?
@@ -298,11 +302,23 @@ This quantity is called the MNPL (Maximum Net Productivity Level).
 What is $60$% of K? Use the posterior distribution of K.
 
 ```{r}
+
+set.seed(667)
+
+posterior %>%
+ mutate(MNPL = posterior %>%
+              pull(K))
+
 MNPL = posterior %>%
  mutate(MNPL = posterior %>% 
           pull(K) %>% quantile(probs = 0.6)) %>% pull(MNPL) %>% mean()
 
 nimPrint("60% of K is ", MNPL)
+
+  
+
+
+
 ```
 
 The maximum growth rate is reached when the population is at the MNPL. Compare the apparent calf production and the inferred MNPL. 
@@ -314,22 +330,17 @@ Change the prior on r to a Gamma distribution of mean $0.04$ and $95$% confidenc
 Simulate $1,000,000$ values from this prior with _rgamma()_ and plot them as a histogram with bins of size 0.01
 
 ```{r}
-# data.frame(r = rgamma(1E6, 3.645, 1/1.094E-2)) %>%
-#   ... +
-#   theme_bw()
-
 data.frame(r = rgamma(1E6, 3.645, 1/1.094E-2)) %>% 
   ggplot(aes(x = r)) +
   geom_histogram(binwidth = 0.01) + 
   theme_bw()
-  
 ```
 
 Modify the nimble code _model_pt_ to change the uniform prior on r to this gamma prior.
 Call this model 'model_pt_gamr'.
 
 ```{r}
-# model_pt_gamr <- nimbleCode({ ... })
+
 ### Pella-tomlinson model: nimble code
 model_pt_gamr <- nimbleCode({ 
   ## data
@@ -440,6 +451,9 @@ data.frame(posterior_gamr = posterior_gamr %>%
 #regarder le WAIC
 mcmc_pt_gamr$WAIC
 
+
+
+
 ```
 
 Fit this model. Ensure that all parameters have converged and that the effective sample size is large enough. Extract the joint posterior distribution.
@@ -458,7 +472,7 @@ $\texttt{N[t+1] = N[t] + N[t] * r * (1 - (N[t] / K)^THETA) - CATCH[t]}$
 Modify the nimble code _model_pt_gamr_ to include the catch data. Call this model _model_pt_gamr_catch_
 
 ```{r}
-# model_pt_gamr_catch <- nimbleCode({ ... })
+
 gray = gray %>% mutate(catch = male_removals + female_removals)
 # model_pt_gamr_catch <- nimbleCode({ ... })
 data_constant <- list(n_obs = gray %>% 
@@ -581,6 +595,7 @@ data.frame(posterior_gamr_catch = posterior_gamr_catch %>%
 
 #regarder le WAIC
 mcmc_pt_gamr_catch$WAIC
+
 ```
 
 Fit this model with nimble. Do not forget to include the catch data. Where do they go? Into the constants or into the stochastic part?
@@ -592,14 +607,14 @@ Plot the raw data alongside.
 Hint: use the following code:
 
 ```{r}
-# geom_linerange(data = gray,
-#                aes(x = year, y = abundance_estimate, ymin = lower, ymax = upper),
-#                color = "tomato"
-#                ) +
-#   geom_point(data = gray,
-#              aes(x = year, y = abundance_estimate),
-#              color = "tomato"
-#              )
+geom_linerange(data = gray,
+                aes(x = year, y = abundance_estimate, ymin = lower, ymax = upper),
+                color = "tomato"
+                ) +
+   geom_point(data = gray,
+              aes(x = year, y = abundance_estimate),
+              color = "tomato"
+              )
 ```
 
 
