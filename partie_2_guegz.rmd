@@ -114,7 +114,7 @@ The level of confidence is 80%
 ## Exploratory Data Analysis
 Plot the abundance data of grey whales over time using functionalities from $\texttt{ggplot}$.
 ```{r}
-#revoir
+
 gray %>%
    ggplot(aes(x=year,y=abundance_estimate)) +
   geom_point() +
@@ -124,6 +124,7 @@ gray %>%
 How many surveys are there (*i.e* years with data)?
 
 ```{r}
+
 n_survey <- gray %>% 
   filter(!is.na(abundance_cv)) 
 
@@ -267,15 +268,14 @@ data.frame(posterior = posterior %>%
 ```
 What can you notice?
 
-#We can notice that all parameters have converged according to the criteria assesed before.
-#Non je ne pense pas cela soit bon 
-#We can see that the prior and the posterior distribution of K are not completely the same. However, the convergence has been reached for K and it's look good. 
+#We can see that the prior and the posterior distribution of K are not completely the same. However, the convergence has been reached for K and it's look good. So we can notice that the parameter K have converged.
 
 What is the estimate for maximum growth rate (r)?
 
 ```{r}
 posterior %>% pull(r) %>% mean()
 ```
+
 Plot the posterior distribution as histogram with bins of size $0.025$.
 
 ```{r}
@@ -292,8 +292,7 @@ data.frame(posterior = posterior %>%
    ggtitle("r")
 
 ```
-
-Is this realistic? How does that compare for example against calf production (the ratio of the number of calves over the estimated abundance)?
+##### Is this realistic? How does that compare for example against calf production (the ratio of the number of calves over the estimated abundance)?
 Compute the apparent calf production by filling in the code below:
 
 ```{r}
@@ -312,7 +311,7 @@ filter(!is.na(production))
 nimPrint("The apparent calf production is ", mean(mean_r$production) , " %")
 
 ```
-It's not really realistic because the apparent calf production is very low. 
+It's not really realistic because the apparent calf production is very low compared to the mean posterior of r. 
 
 With the Pella-Tomlinson($\theta = 2.4$) model, productivity is expected to be maximum at $60$% of K.
 This quantity is called the MNPL (Maximum Net Productivity Level). 
@@ -328,13 +327,11 @@ MNPL = posterior %>%
 nimPrint("60% of K is ", MNPL)
 
 ```
-The maximum growth rate is reached when the population is at the MNPL. Compare the apparent calf production and the inferred MNPL. 
-Is the estimate of r plausible?
-
-#ZEBI 
-
+### The maximum growth rate is reached when the population is at the MNPL. Compare the apparent calf production and the inferred MNPL. 
+### Is the estimate of r plausible?
 
 ## Modelling (II)
+
 Change the prior on r to a Gamma distribution of mean $0.04$ and $95$% confidence interval between $0.01$ and $0.08$. The following $\texttt{R}$ parametrization corresponds to this prior: $\texttt{r ~ dgamma(3.645, 1/1.094E-2)}$
 
 Simulate $1,000,000$ values from this prior with _rgamma()_ and plot them as a histogram with bins of size 0.01
@@ -438,6 +435,7 @@ init_pt <- function(chain_id, # identifier for a mcmc chain
            params = c('sigma', 'mu', 'K', 'r')
            )
 ```
+
 Does the posterior distribution of r change? Make a histogram comparing the prior and the posterior for r. Recycle some code above to do so.
 
 ```{r}
@@ -464,8 +462,10 @@ data.frame(posterior_gamr = posterior_gamr %>%
    geom_histogram(binwidth = 0.005) +
    theme_bw() +
    ggtitle("r")
+   
 ```
-# SAMUEL # kezako We observe that the posterior distribution of r has changed and the distribution is much more 
+
+We observe that the posterior distribution of r has changed and the distribution fit better with the previous one. The patterns are very closed. 
 
 Fit this model. Ensure that all parameters have converged and that the effective sample size is large enough. Extract the joint posterior distribution.
 
@@ -474,6 +474,7 @@ Does your inference on K change?
 No, our inference on K doesn't change
 
 ### Modelling (III)
+
 Include in the population dynamics that this species is actually hunted.
 
 Compute the total number of catches each year and include them in the model dynamics:
@@ -485,6 +486,7 @@ Modify the nimble code _model_pt_gamr_ to include the catch data. Call this mode
 ```{r}
 
 gray = gray %>% mutate(catch = male_removals + female_removals)
+
 # model_pt_gamr_catch <- nimbleCode({ ... })
 data_constant <- list(n_obs = gray %>% 
                             nrow(),
@@ -494,8 +496,8 @@ data_constant <- list(n_obs = gray %>%
                        prior_location_lognK =(log(2E4)-0.5*(log(1.20) / 2)^2),
                        prior_scale_lognK = log(1.20) / 2
                        )
- data_stochastic <- list(COUNT = gray %>% pull(abundance_estimate), CATCH = gray %>% 
-                        pull(catch))
+data_stochastic <- list(COUNT = gray %>% pull(abundance_estimate), 
+                         CATCH = gray %>% pull(catch))
  
  
 model_pt_gamr_catch <- nimbleCode({ 
@@ -610,17 +612,19 @@ data.frame(posterior_gamr_catch = posterior_gamr_catch %>%
    theme_bw() +
    ggtitle("r")
 
-#regarder le WAIC
 mcmc_pt_gamr_catch$WAIC
 
 ```
 
 Fit this model with nimble. Do not forget to include the catch data. Where do they go? Into the constants or into the stochastic part?
 
+The catch data goes on the stochastic part because their are not predictible and depends of many factors. In conclusion, their are not constant so they goes in the stochastic part. 
+
 Ensure that all parameters have converged and that the effective sample size is large enough. Extract the joint posterior distribution.
 
 Plot the posterior mean of the abundance according to this last model and show also the $80$% confidence interval on this plot.
 Plot the raw data alongside.
+
 Hint: use the following code:
 
 ```{r}
