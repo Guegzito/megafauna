@@ -15,7 +15,7 @@ Once common throughout the Northern Hemisphere, gray whales (*Eschrichtius robus
 Punt and Wade (Journal of Cetacean Research and Management 12(1):15–28, 2012, <https://www.semanticscholar.org/paper/Population-status-of-the-eastern-North-Pacific-of-Punt-Wade/767d7a50bc2bc4df6c7c8729f185b0628187fe77/figure/6>) investigated the status of the eastern North Pacific stock of gray whales in 2009. We will use their data to model the population dynamics of gray whales (https://www.arlis.org/docs/vol1/B/525524065.pdf).
 
 ```{r packages}
-what_u_need <- c("tidyverse", "nimble", "MCMCvis", "glue")
+what_u_need <- c("tidyverse", "nimble", "MCMCvis", "glue", "readxl")
 cran_packages <- what_u_need[!(what_u_need %in% installed.packages())]
 if(length(cran_packages) != 0) {
   lapply(cran_packages, install.packages, dependencies = TRUE)
@@ -87,7 +87,6 @@ The data are stored in a spreadsheet called _PuntWade2010.xlsx_. Make sure your 
 
 ```{r}
 
-library(readxl)
 gray <- read_excel("~/Bureau/MEGAFAUNA/DM/PuntWade2010.xlsx", 
     col_types = c("date", "numeric", "numeric", 
         "numeric", "numeric", "numeric"))
@@ -107,7 +106,6 @@ gray %>%
           upper = ceiling(upper)
           )
 ```
-?qlnorm
 What are the columns _lower_ and _upper_? What is the level of confidence?
 
 Columns upper and lower are the upper and lower bounds for carrying capacity
@@ -121,8 +119,8 @@ gray %>%
    ggplot(aes(x=year,y=abundance_estimate)) +
   geom_point() +
   theme_bw()
+  
 ```
-
 How many surveys are there (*i.e* years with data)?
 
 ```{r}
@@ -131,13 +129,13 @@ n_survey <- gray %>%
 
 nimPrint("The number of year with data (surveys) is ", nrow(n_survey))
 
-
 ```
 
 ## Modelling (I)
 Assume that the prior for K, the carrying capacity is a log-normal distribution of mean $20,000$ and coefficient of variation $20$%.
 
 ```{r}
+
  prior_scale_lognK <- log(1.20) / 2
  prior_location_lognK <- log(2E4) - 0.5 * (prior_scale_lognK)^2
  
@@ -146,6 +144,7 @@ Assume that the prior for K, the carrying capacity is a log-normal distribution 
    geom_histogram(breaks = seq(1E4, 3E4, 5E2)) +
    theme_bw() +
    ggtitle("Prior on K")
+   
 ```
 
 Fit a population dynamics model with a Pella-Tomlinson ($\theta = 2.4$) to these data using $\texttt{nimble}$ the code _model_pt_ above.
@@ -153,7 +152,7 @@ Fit a population dynamics model with a Pella-Tomlinson ($\theta = 2.4$) to these
 What are the constants?
 
 #n_obs: sample size
-# THETA: shape of the Pella-Tomlinson process
+THETA: shape of the Pella-Tomlinson process
 # prior_location_lognK: location parameter for the logN prior on K
 # prior_scale_lognK: scale parameter for the logN prior on K
 
@@ -170,7 +169,10 @@ What are the stochastic data?
 
 What is the likelihood of the data (*i.e* which distribution is assumed)?
 
-log normal prior on K (mean = 2E4, and CV = 20%)
+log normal prior on K (mean = 2E4, and CV = 20%): 
+normal distribution prior on mu ~ with mean 0 and sd 5: mu ~ dnorm(0.0, sd = 5.0)
+half-normal prior on sigma with mean 0 and sd 1: sigma ~ T(dnorm(0.0, sd = 1.0), 0.0,)
+uniform prior on maximum growth rate: r ~ dunif(0.0, 1.0)
 
 Make sure model parameters are all converging and that effective sample size are above $1000$ for all of them.
 
@@ -293,15 +295,13 @@ data.frame(posterior = posterior %>%
    theme_bw() +
    ggtitle("r")
 
-   
-  
-
 ```
 
 Is this realistic? How does that compare for example against calf production (the ratio of the number of calves over the estimated abundance)?
 Compute the apparent calf production by filling in the code below:
 
 ```{r}
+
  gray %>%
 mutate(production = calf_count / abundance_estimate) %>%
 filter(!is.na(production)) %>% 
@@ -324,6 +324,7 @@ This quantity is called the MNPL (Maximum Net Productivity Level).
 What is $60$% of K? Use the posterior distribution of K.
 
 ```{r}
+
 MNPL = posterior %>%
  mutate(MNPL = posterior %>% 
           pull(K) %>% quantile(probs = 0.6)) %>% pull(MNPL) %>% mean()
