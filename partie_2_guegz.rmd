@@ -484,6 +484,10 @@ $\texttt{N[t+1] = N[t] + N[t] * r * (1 - (N[t] / K)^THETA) - CATCH[t]}$
 
 Modify the nimble code _model_pt_gamr_ to include the catch data. Call this model _model_pt_gamr_catch_
 
+Fit this model with nimble. Do not forget to include the catch data. Where do they go? Into the constants or into the stochastic part?
+
+The catch data goes on the stochastic part because their are not predictible and depends of many factors. In conclusion, their are not constant so they goes in the stochastic part. 
+
 ```{r}
 
 gray = gray %>% mutate(catch = male_removals + female_removals)
@@ -578,19 +582,26 @@ init_pt <- function(chain_id, # identifier for a mcmc chain
                        WAIC = TRUE,
                        monitors = c('mu', 'sigma', 'K', 'r', 'pred')
                        )
- 
+```
+
+```{r} 
 ## calculate numerical summaries
  MCMCsummary(object = mcmc_pt_gamr_catch$samples, round = 2,
              params = c('sigma', 'mu', 'K', 'r')
              )
 
+```
+
+```{r}
 ## check convergence: trace and marginal posterior density
  MCMCtrace(object = mcmc_pt_gamr_catch$samples,
            pdf = FALSE, # no export to PDF
            ind = TRUE,  # separate density lines per chain
            params = c('sigma', 'mu', 'K', 'r')
            )
+```
  
+```{r}
  ## posterior analysis: extract joint posterior distribution
  posterior_gamr_catch <- mcmc_pt_gamr_catch$samples %>% 
    do.call("rbind", .) %>% 
@@ -601,7 +612,7 @@ init_pt <- function(chain_id, # identifier for a mcmc chain
 
  ##plot 
 data.frame(posterior_gamr_catch = posterior_gamr_catch %>%
-              pull(r)) %>%
+              pull(`pred[1]`)) %>%
    mutate(prior = rgamma(n(), 3.645, 1/1.094E-2)) %>%
    pivot_longer(cols = c("prior", "posterior_gamr_catch"),
                 values_to = "value",
@@ -612,21 +623,16 @@ data.frame(posterior_gamr_catch = posterior_gamr_catch %>%
    geom_histogram(binwidth = 0.005) +
    theme_bw() +
    ggtitle("r")
-
-mcmc_pt_gamr_catch$WAIC
-
 ```
 
-Fit this model with nimble. Do not forget to include the catch data. Where do they go? Into the constants or into the stochastic part?
-
-The catch data goes on the stochastic part because their are not predictible and depends of many factors. In conclusion, their are not constant so they goes in the stochastic part. 
-
+```{r}
+#regarder le WAIC
+mcmc_pt_gamr_catch$WAIC$WAIC
+```
 Ensure that all parameters have converged and that the effective sample size is large enough. Extract the joint posterior distribution.
 
 Plot the posterior mean of the abundance according to this last model and show also the $80$% confidence interval on this plot.
 Plot the raw data alongside.
-
-Hint: use the following code:
 
 ```{r}
 
