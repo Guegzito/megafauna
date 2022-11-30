@@ -269,7 +269,7 @@ data.frame(posterior = posterior %>%
 ```
 What can you notice?
 
-#We can see that the prior and the posterior distribution of K are not completely the same. However, the convergence has been reached for K and it's look good. So we can notice that the parameter K have converged.
+We can see that the prior and the posterior distribution of K are not completely the same. However, the convergence has been reached for K and it's look good. So we can notice that the parameter K have converged.
 
 What is the estimate for maximum growth rate (r)?
 
