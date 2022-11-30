@@ -149,26 +149,23 @@ Assume that the prior for K, the carrying capacity is a log-normal distribution 
 
 Fit a population dynamics model with a Pella-Tomlinson ($\theta = 2.4$) to these data using $\texttt{nimble}$ the code _model_pt_ above.
 
-What are the constants?
-
-#n_obs: sample size
+#The data constants are:
+n_obs: sample size
 THETA: shape of the Pella-Tomlinson process
-# prior_location_lognK: location parameter for the logN prior on K
-# prior_scale_lognK: scale parameter for the logN prior on K
+prior_location_lognK: location parameter for the logN prior on K
+prior_scale_lognK: scale parameter for the logN prior on K
 
-Parameters are 'mu', 'sigma', 'K', 'r'
+#Constants are:
+K : carrying capacity 
+r : the maximum growth rate 
+mu and sigma : initial condition for the state-space model
 
-#K : carrying capacity 
-#r : the maximum growth rate 
-#mu : ??????????????????????????
-#sigma : ???????????????????????????
-
-What are the stochastic data?
-
-# COUNT: abundance estimate
+#The stochastic data are:
+COUNT: abundance estimate
 
 What is the likelihood of the data (*i.e* which distribution is assumed)?
 
+Normal distribution on Count: COUNT[t] ~ dlnorm(linpred[t] - 0.5 * sigma * sigma, sd = sigma)
 log normal prior on K (mean = 2E4, and CV = 20%): 
 normal distribution prior on mu ~ with mean 0 and sd 5: mu ~ dnorm(0.0, sd = 5.0)
 half-normal prior on sigma with mean 0 and sd 1: sigma ~ T(dnorm(0.0, sd = 1.0), 0.0,)
@@ -195,8 +192,6 @@ data_constant <- list(n_obs = gray %>%
  n_thin <- 6 # thining
  n_final <- (n_iter - n_burnin) / n_thin # final sample size from posterior
 ```
-
-Once you have completed the lines of code above, run the lines of code below (remove the #)
 
 ```{r}
 mcmc_pt <- nimbleMCMC(code = model_pt, 
@@ -249,7 +244,8 @@ mcmc_pt <- nimbleMCMC(code = model_pt,
 How do assess that parameters' convergence has been reached?
 
 We can look at the density lines of the chains and check if they are peaking for the same 
-value, the trace must be also a combined fuzzy thread. If there are separate traces that never cross, we can assess that the parameters did not converge
+value, the trace must be also a combined fuzzy thread. If there are separate traces that never cross, we can assess that the parameters did not converge.
+Moreover, the Rhat is closed from 0, it mean that the variance is not high beteween the different chains so parameters have converge. Additionnaly, the n.eff is high, so there is no autocorrelation. 
 
 The following lines of code will plot the posterior distribution of K and its prior distribution.
 
@@ -273,7 +269,7 @@ What can you notice?
 
 #We can notice that all parameters have converged according to the criteria assesed before.
 #Non je ne pense pas cela soit bon 
-#We an see that the prior and the posterior distribution of K are not completely the same. However, the convergence has been reached for K and it's look good. 
+#We can see that the prior and the posterior distribution of K are not completely the same. However, the convergence has been reached for K and it's look good. 
 
 What is the estimate for maximum growth rate (r)?
 
