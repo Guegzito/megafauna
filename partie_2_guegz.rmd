@@ -87,9 +87,9 @@ The data are stored in a spreadsheet called _PuntWade2010.xlsx_. Make sure your 
 
 ```{r}
 
-gray <- read_excel("~/Bureau/MEGAFAUNA/DM/PuntWade2010.xlsx", 
-    col_types = c("date", "numeric", "numeric", 
-        "numeric", "numeric", "numeric"))
+gray <- readxl::read_excel(path = "PuntWade2010.xlsx",
+                           sheet = 1,
+                           na = "NA")
 
 gray %>%
    mutate(abundance_cv = as.numeric(abundance_cv),
