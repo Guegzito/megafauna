@@ -15,7 +15,7 @@ Once common throughout the Northern Hemisphere, gray whales (*Eschrichtius robus
 Punt and Wade (Journal of Cetacean Research and Management 12(1):15–28, 2012, <https://www.semanticscholar.org/paper/Population-status-of-the-eastern-North-Pacific-of-Punt-Wade/767d7a50bc2bc4df6c7c8729f185b0628187fe77/figure/6>) investigated the status of the eastern North Pacific stock of gray whales in 2009. We will use their data to model the population dynamics of gray whales (https://www.arlis.org/docs/vol1/B/525524065.pdf).
 
 ```{r packages}
-what_u_need <- c("tidyverse", "nimble", "MCMCvis", "glue", "readxl")
+what_u_need <- c("tidyverse", "nimble", "MCMCvis", "glue", "readxl", "matrixStats")
 cran_packages <- what_u_need[!(what_u_need %in% installed.packages())]
 if(length(cran_packages) != 0) {
   lapply(cran_packages, install.packages, dependencies = TRUE)
@@ -91,7 +91,7 @@ gray <- readxl::read_excel(path = "PuntWade2010.xlsx",
                            sheet = 1,
                            na = "NA")
 
-gray %>%
+gray <- gray %>%
    mutate(abundance_cv = as.numeric(abundance_cv),
           abundance_se = sqrt(log1p(abundance_cv * abundance_cv)),
           lower = qlnorm(0.1, 
@@ -104,11 +104,12 @@ gray %>%
                          ),
           lower = floor(lower),
           upper = ceiling(upper)
-          )
+          ) %>% print()
+          
 ```
 What are the columns _lower_ and _upper_? What is the level of confidence?
 
-Columns upper and lower are the upper and lower bounds for carrying capacity
+Columns upper and lower are the upper and lower bounds for the abundance estimate 
 The level of confidence is 80%
 
 ## Exploratory Data Analysis
@@ -628,14 +629,33 @@ Plot the raw data alongside.
 Hint: use the following code:
 
 ```{r}
-geom_linerange(data = gray,
-                aes(x = year, y = abundance_estimate, ymin = lower, ymax = upper),
+
+posterior_predict <- posterior_gamr_catch %>% select(.,3:44) %>%
+  as.matrix()
+mean_posterior <- posterior_predict %>%
+  colMeans()
+quantile_posterior <- posterior_predict %>%
+  colQuantiles(probs = c(0.2, 0.8))
+Plotzer <- cbind(gray, mean_posterior, quantile_posterior)
+
+Plotzer %>%
+  ggplot()+
+  geom_linerange(aes(x = year, y = mean_posterior, ymin = `20%`, ymax = `80%`))+
+  geom_point(aes(x = year, y = mean_posterior)) +
+  geom_linerange(data = gray,
+                aes(x = year, y = abundance_estimate, ymin = lower, ymax =
+                      upper),
                 color = "tomato"
                 ) +
    geom_point(data = gray,
               aes(x = year, y = abundance_estimate),
               color = "tomato"
-              )
+              )+
+  theme_bw()+
+  ggtitle("Posterior mean of the abundance and raw data ")+
+  theme(legend.position="Left")+
+  ylab("average abundance (number of individual)")
+  
 ```
 
 
