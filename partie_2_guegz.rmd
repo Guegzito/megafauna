@@ -293,7 +293,8 @@ data.frame(posterior = posterior %>%
    ggtitle("r")
 
 ```
-##### Is this realistic? How does that compare for example against calf production (the ratio of the number of calves over the estimated abundance)?
+Is this realistic? How does that compare for example against calf production (the ratio of the number of calves over the estimated abundance)?
+
 Compute the apparent calf production by filling in the code below:
 
 ```{r}
@@ -309,7 +310,7 @@ mean_r <- gray %>%
 mutate(production = calf_count / abundance_estimate) %>%
 filter(!is.na(production))
   
-nimPrint("The apparent calf production is ", mean(mean_r$production) , " %")
+nimPrint("The apparent calf production is ", mean(mean_r$production))
 
 ```
 It's not really realistic because the apparent calf production is very low compared to the mean posterior of r. 
@@ -328,8 +329,16 @@ MNPL = posterior %>%
 nimPrint("60% of K is ", MNPL)
 
 ```
-### The maximum growth rate is reached when the population is at the MNPL. Compare the apparent calf production and the inferred MNPL. 
-### Is the estimate of r plausible?
+The maximum growth rate is reached when the population is at the MNPL. Compare the apparent calf production and the inferred MNPL. 
+
+Is the estimate of r plausible?
+
+```{r}
+
+posterior %>% filter(K > 20679.88 & K < 20679.89) %>% pull(r)
+
+```
+The estimate of r is not plausible because it's too high compared to the apparent calf production
 
 ## Modelling (II)
 
